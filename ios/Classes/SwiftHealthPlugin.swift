@@ -56,6 +56,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
     let HEADACHE_MODERATE = "HEADACHE_MODERATE"
     let HEADACHE_SEVERE = "HEADACHE_SEVERE"
     let ELECTROCARDIOGRAM = "ELECTROCARDIOGRAM"
+    let ALL_SLEEP = "ALL_SLEEP"
     
     // Health Unit types
     // MOLE_UNIT_WITH_MOLAR_MASS, // requires molar mass input - not supported yet
@@ -286,6 +287,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
               let startTime = (arguments["startTime"] as? NSNumber),
               let endTime = (arguments["endTime"] as? NSNumber)
         else {
+            
             throw PluginError(message: "Invalid Arguments")
         }
         
@@ -387,12 +389,14 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         let predicate = HKQuery.predicateForSamples(withStart: dateFrom, end: dateTo, options: .strictStartDate)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
         
+        
         let query = HKSampleQuery(sampleType: dataType, predicate: predicate, limit: limit, sortDescriptors: [sortDescriptor]) { [self]
             x, samplesOrNil, error in
             
             switch samplesOrNil {
             case let (samples as [HKQuantitySample]) as Any:
                 let dictionaries = samples.map { sample -> NSDictionary in
+                    
                     return [
                         "uuid": "\(sample.uuid)",
                         "value": sample.quantity.doubleValue(for: unit!),
@@ -416,56 +420,154 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
                 }
                 
             case var (samplesCategory as [HKCategorySample]) as Any:
-                if (dataTypeKey == self.SLEEP_IN_BED) {
-                    samplesCategory = samplesCategory.filter { $0.value == 0 }
-                }
-                if (dataTypeKey == self.SLEEP_ASLEEP) {
-                    samplesCategory = samplesCategory.filter { $0.value == 1 }
-                }
-                if (dataTypeKey == self.SLEEP_AWAKE) {
-                    samplesCategory = samplesCategory.filter { $0.value == 2 }
-                }
-                if (dataTypeKey == self.HEADACHE_UNSPECIFIED) {
-                    samplesCategory = samplesCategory.filter { $0.value == 0 }
-                }
-                if (dataTypeKey == self.HEADACHE_NOT_PRESENT) {
-                    samplesCategory = samplesCategory.filter { $0.value == 1 }
-                }
-                if (dataTypeKey == self.HEADACHE_MILD) {
-                    samplesCategory = samplesCategory.filter { $0.value == 2 }
-                }
-                if (dataTypeKey == self.HEADACHE_MODERATE) {
-                    samplesCategory = samplesCategory.filter { $0.value == 3 }
-                }
-                if (dataTypeKey == self.HEADACHE_SEVERE) {
-                    samplesCategory = samplesCategory.filter { $0.value == 4 }
-                }
-                let categories = samplesCategory.map { sample -> NSDictionary in
-                    return [
-                        "uuid": "\(sample.uuid)",
-                        "value": sample.value,
-                        "date_from": Int(sample.startDate.timeIntervalSince1970 * 1000),
-                        "date_to": Int(sample.endDate.timeIntervalSince1970 * 1000),
-                        "source_id": sample.sourceRevision.source.bundleIdentifier,
-                        "source_name": sample.sourceRevision.source.name,
+                                
+                if (dataTypeKey == self.ALL_SLEEP) {
+                    var uuid = ""
+                    var date_from = 0
+                    var date_to = 0
+                    var source_id = ""
+                    var source_name = ""
+                    var udi_device_identifier = ""
+                    var firmware_version = ""
+                    var hardware_version = ""
+                    var manufacturer = ""
+                    var model = ""
+                    var name = ""
+                    var software_version = ""
+                    
+                    
+                    var originSleepList : [OriginSleep] = [OriginSleep]()
+                    if #available(iOS 16.0, *) {
+                                                
+                        let sleepData = samplesCategory.reversed()
+                        
+                        for element in sleepData {
+                            let originSleep: OriginSleep = OriginSleep()
+
+                            let sleepDown = Int(element.startDate.timeIntervalSince1970)
+                            let sleepUp = Int(element.endDate.timeIntervalSince1970)
+
+                            originSleep.sleepDown = sleepDown
+                            originSleep.sleepUp = sleepUp
+                            
+                            print("type: \(element.value) sleepDown: \(sleepDown) - sleepUp: \(sleepUp)")
+                            if element.value == HKCategoryValueSleepAnalysis.awake.rawValue {
+                                originSleep.type = 2
+                            } else if element.value == HKCategoryValueSleepAnalysis.asleepCore.rawValue {
+                                originSleep.type = 3
+                            } else if element.value == HKCategoryValueSleepAnalysis.asleepDeep.rawValue {
+                                originSleep.type = 4
+                            } else if element.value == HKCategoryValueSleepAnalysis.asleepREM.rawValue {
+                                originSleep.type = 5
+                            } else {
+                                continue
+                            }
+                            originSleepList.append(originSleep)
+                        }
+                    }
+
+                    if samplesCategory.count > 0 {
+                        let sample = samplesCategory.first
+                        uuid = "\(String(describing: sample?.uuid))"
+                        date_from = Int((sample?.startDate.timeIntervalSince1970 ?? 0) * 1000)
+                        date_to = Int((sample?.endDate.timeIntervalSince1970 ?? 0) * 1000)
+                        source_id = sample?.sourceRevision.source.bundleIdentifier ?? ""
+                        source_name = sample?.sourceRevision.source.name ?? ""
+                        udi_device_identifier = sample?.device?.udiDeviceIdentifier ?? ""
+                        firmware_version = sample?.device?.firmwareVersion ?? ""
+                        hardware_version = sample?.device?.hardwareVersion ?? ""
+                        manufacturer = sample?.device?.manufacturer ?? ""
+                        model = sample?.device?.model ?? ""
+                        name = sample?.device?.name ?? ""
+                        software_version = sample?.device?.softwareVersion ?? ""
+                    }
+                    
+                    let sleepDataList = SleepData.getSleep(originSleepList: originSleepList)
+                    
+                    let jsonEncoder = JSONEncoder()
+                    let jsonData = try! jsonEncoder.encode(sleepDataList)
+                    let sleepJson = String(data: jsonData, encoding: String.Encoding.utf8) ?? ""
+                    
+                    
+                    print("sleepJson: \(sleepJson)")
+                    
+                    let record = [
+                        "uuid": uuid,
+                        "value": sleepJson,
+                        "date_from": date_from,
+                        "date_to": date_to,
+                        "source_id": source_id,
+                        "source_name": source_name,
                         "device": [
-                             "udi_device_identifier": sample.device?.udiDeviceIdentifier,
-                             "firmware_version": sample.device?.firmwareVersion,
-                             "hardware_version": sample.device?.hardwareVersion,
-                             "manufacturer": sample.device?.manufacturer,
-                             "model": sample.device?.model,
-                             "name": sample.device?.name,
-                             "software_version": sample.device?.softwareVersion
+                            "udi_device_identifier": udi_device_identifier,
+                            "firmware_version": firmware_version,
+                            "hardware_version": hardware_version,
+                            "manufacturer": manufacturer,
+                            "model": model,
+                            "name": name,
+                            "software_version": software_version,
                         ]
                     ]
-                }
-                DispatchQueue.main.async {
-                    result(categories)
+                
+                        
+                    
+                    DispatchQueue.main.async {
+                        result([record])
+                    }
+                } else {
+                    
+                    if (dataTypeKey == self.SLEEP_IN_BED) {
+                        samplesCategory = samplesCategory.filter { $0.value == 0 }
+                    }
+                    if (dataTypeKey == self.SLEEP_ASLEEP) {
+                        samplesCategory = samplesCategory.filter { $0.value == 1 }
+                    }
+                    if (dataTypeKey == self.SLEEP_AWAKE) {
+                        samplesCategory = samplesCategory.filter { $0.value == 2 }
+                    }
+                    if (dataTypeKey == self.HEADACHE_UNSPECIFIED) {
+                        samplesCategory = samplesCategory.filter { $0.value == 0 }
+                    }
+                    if (dataTypeKey == self.HEADACHE_NOT_PRESENT) {
+                        samplesCategory = samplesCategory.filter { $0.value == 1 }
+                    }
+                    if (dataTypeKey == self.HEADACHE_MILD) {
+                        samplesCategory = samplesCategory.filter { $0.value == 2 }
+                    }
+                    if (dataTypeKey == self.HEADACHE_MODERATE) {
+                        samplesCategory = samplesCategory.filter { $0.value == 3 }
+                    }
+                    if (dataTypeKey == self.HEADACHE_SEVERE) {
+                        samplesCategory = samplesCategory.filter { $0.value == 4 }
+                    }
+                    let categories = samplesCategory.map { sample -> NSDictionary in
+                        return [
+                            "uuid": "\(sample.uuid)",
+                            "value": sample.value,
+                            "date_from": Int(sample.startDate.timeIntervalSince1970 * 1000),
+                            "date_to": Int(sample.endDate.timeIntervalSince1970 * 1000),
+                            "source_id": sample.sourceRevision.source.bundleIdentifier,
+                            "source_name": sample.sourceRevision.source.name,
+                            "device": [
+                                "udi_device_identifier": sample.device?.udiDeviceIdentifier,
+                                "firmware_version": sample.device?.firmwareVersion,
+                                "hardware_version": sample.device?.hardwareVersion,
+                                "manufacturer": sample.device?.manufacturer,
+                                "model": sample.device?.model,
+                                "name": sample.device?.name,
+                                "software_version": sample.device?.softwareVersion
+                            ]
+                        ]
+                    }
+                    DispatchQueue.main.async {
+                        result(categories)
+                    }
                 }
                 
             case let (samplesWorkout as [HKWorkout]) as Any:
                 
                 let dictionaries = samplesWorkout.map { sample -> NSDictionary in
+                
                     return [
                         "uuid": "\(sample.uuid)",
                         "workoutActivityType": workoutActivityTypeMap.first(where: {$0.value == sample.workoutActivityType})?.key,
@@ -503,6 +605,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
                         leftEarSensitivities.append(samplePoint.leftEarSensitivity!.doubleValue(for: HKUnit.decibelHearingLevel()))
                         rightEarSensitivities.append(samplePoint.rightEarSensitivity!.doubleValue(for: HKUnit.decibelHearingLevel()))
                     }
+                    
                     return [
                         "uuid": "\(sample.uuid)",
                         "frequencies": frequencies,
@@ -850,6 +953,13 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
             workoutActivityTypeMap["COOLDOWN"] = HKWorkoutActivityType.cooldown
         }
         
+
+        if #available(iOS 16.0, *) {
+            dataTypesDict[ALL_SLEEP] = HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!
+        }
+        
+
+        
         // Concatenate heart events, headache and health data types (both may be empty)
         allDataTypes = Set(heartRateEventTypes + healthDataTypes)
         allDataTypes = allDataTypes.union(headacheType)
@@ -857,5 +967,163 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
 }
 
 
+public class SleepData: Codable {
+    public var date: String = ""
+    
+    public var sleepLine: String = ""
+    public var sleepDown: String = ""
+    public var sleepUp: String = ""
+    public var accurateType: Int = 1
+    
+    public var sleepQuality: Int = 0
+   
+    static func getSleep(originSleepList: [OriginSleep]) -> SleepData {
+        let sleepData = SleepData()
+        sleepData.sleepDown = getSleepDown(originSleepList: originSleepList)
+        sleepData.sleepUp = getSleepUp(originSleepList: originSleepList)
+        print("sleepData.sleepDown: \(sleepData.sleepDown) sleepData.sleepUp: \(sleepData.sleepUp)")
+        sleepData.sleepLine = getSleepLine(originSleepList: originSleepList)
+        sleepData.accurateType = 1
+        return sleepData
+    }
+    
+    // Sleep up value will round up
+    static func getSleepUp(originSleepList: [OriginSleep]) -> String {
+        var sleepUp =  "2000-01-01 00:00:00"
+        if (originSleepList.isEmpty){
+            return sleepUp
+        }
+        let lastSleep = originSleepList.last
+        let valueAfterRound = Util.roundUpTimestampPrecision(lastSleep!.sleepUp)
+        sleepUp = Date(timeIntervalSince1970: TimeInterval(valueAfterRound)).convertDateToString()
+        return sleepUp
+    }
+    
+    // Sleep down value will round down
+    static func getSleepDown(originSleepList: [OriginSleep]) -> String {
+        var sleepDown = "2000-01-01 00:00:00"
+        if (originSleepList.isEmpty){
+            return sleepDown
+        }
+        let firstSleep = originSleepList.first
+        let valueAfterRound = Util.roundDownTimestampPrecision(firstSleep!.sleepDown)
+        sleepDown = Date(timeIntervalSince1970: TimeInterval(valueAfterRound)).convertDateToString()
+        return sleepDown
+    }
+    
+    static func getSleepLine(originSleepList: [OriginSleep]) -> String {
+        var sleepLine: String = ""
+        var lastSleepLineValue = ""
+        if (originSleepList.isEmpty){
+            return sleepLine
+        }
+        
+        originSleepList.first!.sleepDown = Util.roundDownTimestampPrecision(originSleepList.first!.sleepDown)
+        originSleepList.last!.sleepUp = Util.roundUpTimestampPrecision(originSleepList.last!.sleepUp)
+        
+        for (index, element) in originSleepList.enumerated() {
+            print("type: \(element.type) element.sleepDown: \(Date(timeIntervalSince1970: TimeInterval(element.sleepDown)).convertDateToString()) - element.sleepUp: \(Date(timeIntervalSince1970: TimeInterval(element.sleepUp)).convertDateToString())")
+            let sleepUpAfterRoundUp = Util.roundUpTimestampPrecisionTo30Seconds(element.sleepUp)
+            let sleepDownAfterRoundUp = Util.roundUpTimestampPrecisionTo30Seconds(element.sleepDown)
+            
+            let sleepLength = (sleepUpAfterRoundUp - sleepDownAfterRoundUp) / 60
+            print("sleepLength: \(sleepLength)")
+            var line : String = ""
+            
+            /// Convert from type in Apple Watch to type in our app.
+            /// Apple Watch Type:
+            ///  awake: 2 - core: 3 - deep: 4 - rem: 5
+            ///
+            ///  Our app:
+            ///  awake: 4 - core (Light): 1 - deep: 0 - rem: 2
+            ///
+            if element.type == 0 {
+                continue
+            }
+            
+            print("sleepUpAfterRoundUp: \(sleepUpAfterRoundUp) - sleepDownAfterRoundUp \(sleepDownAfterRoundUp)")
+            print("element.sleepUp: \(element.sleepUp) - element.sleepDown: \( element.sleepDown)")
+                
+            // Only add the value if minute cycle = 30s and it is between 2 cycles the same type
+            if ((sleepUpAfterRoundUp - sleepDownAfterRoundUp) == 60) && (element.sleepUp - element.sleepDown) == 30 {
+                
+                if (index + 1 > originSleepList.count) {
+                    let previousElement = originSleepList[index - 1]
+                    let nextElement = originSleepList[index + 1]
+                    
+                    if (previousElement.type == nextElement.type) {
+                        line = lastSleepLineValue
+                        print("add value with type \(element.type) ")
+                        sleepLine.append(line)
+                        continue
+                    }
+                }
+            
+            }
+            
+            if element.type == 2 {
+                line = String(repeating: "4", count: sleepLength)
+                lastSleepLineValue = "4"
+            }else if element.type == 3 {
+                line = String(repeating: "1", count: sleepLength)
+                lastSleepLineValue = "1"
+            } else if element.type == 4 {
+                line = String(repeating: "0", count: sleepLength)
+                lastSleepLineValue = "0"
+            } else if element.type == 5 {
+                line = String(repeating: "2", count: sleepLength)
+                lastSleepLineValue = "2"
+            }
+            sleepLine.append(line)
+        }
+
+        print("sleepLine: \(sleepLine) - length: \(sleepLine.count)")
+        return sleepLine.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
 
 
+public class OriginSleep: Codable {
+    // type: 2: awake - 3: core: (Light) - 4: deep - 5: REM
+    public var type: Int = 0
+    public var sleepDown: Int = 0
+    public var sleepUp: Int = 0
+    
+}
+
+public class Util {
+    static func roundUpTimestampPrecisionTo30Seconds(_ timstamp: Int) -> Int {
+        let seconds = timstamp % 60
+        let roundedTimeInterval = timstamp - seconds
+        if seconds >= 30 {
+            return roundedTimeInterval + 60
+        } else {
+            return roundedTimeInterval
+        }
+    }
+
+    static func roundUpTimestampPrecision(_ timstamp: Int) -> Int {
+        let seconds = timstamp % 60
+        let roundedTimeInterval = timstamp - seconds
+        return roundedTimeInterval + 60
+    }
+    
+    static func roundDownTimestampPrecision(_ timstamp: Int) -> Int {
+        let seconds = timstamp % 60
+        let roundedTimeInterval = timstamp - seconds
+        return roundedTimeInterval
+    }
+}
+
+
+
+extension Date {
+    func convertDateToString() -> String
+    {
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US")
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        
+        return dateFormatter.string(from: self)
+    }
+}

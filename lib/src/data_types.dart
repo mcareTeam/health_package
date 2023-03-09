@@ -48,6 +48,9 @@ enum HealthDataType {
   IRREGULAR_HEART_RATE_EVENT,
   ELECTRODERMAL_ACTIVITY,
   ELECTROCARDIOGRAM,
+
+  // iOS 16*
+  ALL_SLEEP,
 }
 
 enum HealthDataAccess {
@@ -100,6 +103,7 @@ const List<HealthDataType> _dataTypeKeysIOS = [
   HealthDataType.HEADACHE_SEVERE,
   HealthDataType.HEADACHE_UNSPECIFIED,
   HealthDataType.ELECTROCARDIOGRAM,
+  HealthDataType.ALL_SLEEP,
 ];
 
 /// List of data types available on Android
@@ -175,6 +179,9 @@ const Map<HealthDataType, HealthDataUnit> _dataTypeToUnit = {
   HealthDataType.IRREGULAR_HEART_RATE_EVENT: HealthDataUnit.NO_UNIT,
   HealthDataType.HEART_RATE_VARIABILITY_SDNN: HealthDataUnit.MILLISECOND,
   HealthDataType.ELECTROCARDIOGRAM: HealthDataUnit.VOLT,
+
+  // iOS 16*
+  HealthDataType.ALL_SLEEP: HealthDataUnit.MINUTE,
 };
 
 const PlatformTypeJsonValue = {

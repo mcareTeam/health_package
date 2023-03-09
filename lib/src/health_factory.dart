@@ -312,6 +312,7 @@ class HealthFactory {
     List<HealthDataPoint> dataPoints = [];
 
     for (var type in types) {
+      print("type: $type");
       final result = await _prepareQuery(startTime, endTime, type);
       dataPoints.addAll(result);
     }
@@ -343,7 +344,10 @@ class HealthFactory {
         _platformType == PlatformType.ANDROID) {
       return _computeAndroidBMI(startTime, endTime);
     }
-    return await _dataQuery(startTime, endTime, dataType);
+    final healthDataList = await _dataQuery(startTime, endTime, dataType);
+    print("healthDataList: $healthDataList");
+    healthDataList.forEach((element) => print(element));
+    return healthDataList;
   }
 
   /// The main function for fetching health data
@@ -395,9 +399,12 @@ class HealthFactory {
         value = WorkoutHealthValue.fromJson(e);
       } else if (dataType == HealthDataType.ELECTROCARDIOGRAM) {
         value = ElectrocardiogramHealthValue.fromJson(e);
+      } else if (dataType == HealthDataType.ALL_SLEEP){
+        value = SleepHealthValue.fromJson(e['value']);
       } else {
         value = NumericHealthValue(e['value']);
       }
+      print("value: $value");
       final DateTime from = DateTime.fromMillisecondsSinceEpoch(e['date_from']);
       final DateTime to = DateTime.fromMillisecondsSinceEpoch(e['date_to']);
       final String sourceId = e["source_id"];

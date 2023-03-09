@@ -265,6 +265,98 @@ class ElectrocardiogramVoltageValue extends HealthValue {
   String toString() => voltage.toString();
 }
 
+class SleepHealthValue extends HealthValue {
+  SleepHealthValue({
+    // this.date = "",
+    // this.wakeCount = 0,
+    // required this.sleepLine,
+    // required this.sleepDown,
+    // required this.sleepUp,
+    // this.accurateType = 0,
+    // this.sleepQuality = 0,
+    // this.deepScore = 0,
+    // this.fallAsleepScore = 0,
+    // this.sleepEfficiencyScore = 0,
+    // this.getUpScore = 0,
+    // this.sleepTag = 0,
+    // this.insomniaDuration = 0,
+    // this.insomniaTag = 0,
+    // this.insomniaLength = 0,
+    // this.insomniaScore = 0,
+    // this.insomniaTimes = 0,
+    // this.sleepDuration = 0,
+    // this.deepDuration = 0,
+    // this.lightDuration = 0,
+    // this.remDuration = 0,
+    required this.sleepValue,
+  });
+
+  dynamic sleepValue;
+
+  // String? date;
+
+  // int? wakeCount;
+  // dynamic? sleepLine;
+
+  // DateTime? sleepDown;
+
+  // DateTime? sleepUp;
+  // int? accurateType;
+
+  // int? sleepQuality;
+  // int? deepScore;
+  // int? fallAsleepScore;
+  // int? sleepEfficiencyScore;
+  // int? getUpScore;
+  // int? sleepTag;
+
+  // int? insomniaDuration;
+  // int? insomniaTag;
+  // int? insomniaLength;
+  // int? insomniaScore;
+  // int? insomniaTimes;
+
+  // int? sleepDuration;
+  // int? deepDuration;
+  // int? lightDuration;
+  // int? remDuration;
+
+  factory SleepHealthValue.fromJson(json) {
+    print("json in SleepHealthValue model: $json");
+    // final a = json.decode(jsona);
+    // print("json['sleepLine'] ${jsona['sleepLine']}");
+    // print("0000");
+    return SleepHealthValue(
+      sleepValue: json
+        // date: json['date'] ?? "",
+        // wakeCount: json['wakeCount'] ?? 0,
+        // sleepLine: jsona,
+        // sleepDown: DateTime(2020),
+        // sleepUp: DateTime(2020),
+        // accurateType: json['accurateType'] ?? 0,
+        // sleepQuality: json['sleepQuality'] ?? 0,
+        // deepScore: json['deepScore'] ?? 0,
+        // fallAsleepScore: json['fallAsleepScore'] ?? 0,
+        // getUpScore: json['getUpScore'] ?? 0,
+        // sleepTag: json['sleepTag'] ?? 0,
+        // insomniaDuration: json['insomniaDuration'] ?? 0,
+        // insomniaTag: json['insomniaTag'] ?? 0,
+        // insomniaLength: json['insomniaLength'] ?? 0,
+        // insomniaScore: json['insomniaScore'] ?? 0,
+        // insomniaTimes: json['insomniaTimes'] ?? 0,
+        // sleepDuration: json['sleepDuration'] ?? 0,
+        // deepDuration: json['deepDuration'] ?? 0,
+        // lightDuration: json['lightDuration'] ?? 0,
+        // remDuration: json['remDuration'] ?? 0,
+      );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    throw UnimplementedError();
+  }
+}
+
 abstract class HealthValue {
   Map<String, dynamic> toJson();
 }

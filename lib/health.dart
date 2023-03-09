@@ -2,6 +2,7 @@ library health;
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert' show jsonDecode;
 import 'dart:io' show Platform;
 
 import 'package:device_info_plus/device_info_plus.dart';
